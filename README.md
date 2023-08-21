@@ -1,27 +1,17 @@
 # Findora Randao Implement
 Randao implementation for Findora BlockChain.
 
-## Findora Rosetta Docker build and run
-### Findora Rosetta contract build and deploy
+## Findora Randao Docker build and run
+### Findora Randao contract build and deploy
 ```bash
-cd eth
-REPORT_GAS=true
-npm install --save-dev hardhat
-npm install
-npx hardhat compile
-npx hardhat run scripts/deploy.ts --network localhost
+
 ```
-### Findora Rosetta image build and run single container
+### Findora Randao image build and run single container
 ```bash
-docker build . -t findora-randao
-docker run -p 80:80 -p 8080:8080 -p 9090:9090 \
--v $(pwd)/config/prinet/config0.json:/tmp/.randao/config/config.json \
--v $(pwd)/campaigns/participant0:/tmp/.randao/campaigns \
--v $(pwd)/keys:/tmp/.randao/keys \
--itd --name findora-randao --restart always findora-randao
+
 ```
-### Findora Rosetta image build and multi run multiple container
+### Findora Randao image build and multi run multiple container
 ```bash
-docker-compose -f docker-compose-prinet.yml up -d
+
 ```
 

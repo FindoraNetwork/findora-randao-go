@@ -1,0 +1,23 @@
+{
+    "chain": {
+        "name": "local",
+        "chain_id": "2152",
+        "endpoint": "http://127.0.0.1:8545",
+        "participant": "b501fc5879f214ee8be2832e43955ac0f19e20d1f7e33436d6746ac889dc043d",
+        "campaigner": "b501fc5879f214ee8be2832e43955ac0f19e20d1f7e33436d6746ac889dc043d",
+        "randao": "0xfB45f8B9705FFA9d05D42b72E73afE7E2ceEa860",
+        "opts": {
+            "gas_limit": "1000000",
+            "max_gas_price": "100000000000",
+            "min_gas_reserve": "1000000000000000000",
+            "max_deposit": 10,
+            "min_rate_of_return": 50,
+            "min_reveal_window": 7,
+            "max_reveal_delay": 6,
+            "max_campaigns": 1,
+            "start_block": 0
+        }
+    },
+    "campagin_ids_path": "campaigns",
+    "http_listen": "127.0.0.1:3000"
+}
