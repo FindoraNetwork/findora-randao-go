@@ -1,20 +1,20 @@
 all: rebuild
 
-rebuild: clean build
+rebuild: clean build_debug
 
-build: compile abigen build_debug
+rebuild_release: clean build_release
 
 compile:
 	solc contract/IRandao.sol --abi --bin -o ./abi
 
 abigen: 
-	abigen --abi abi/IRandao.abi --bin abi/IRandao.bin --pkg randao --type randao  --out contract/randao.go
+	abigen --abi abi/IRandao.abi --bin abi/IRandao.bin --pkg contract --type randao  --out contract/randao.go
 
-build_debug:
+build_debug: compile abigen
 	go build -tags "debug" -o ./bin/participant ./cmd/participant
 	go build -tags "debug" -o ./bin/campaign ./cmd/campaign
 
-build_release:
+build_release: compile abigen
 	go build -o ./bin/participant ./cmd/participant
 	go build -o ./bin/campaign ./cmd/campaign
 

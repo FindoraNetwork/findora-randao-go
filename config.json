@@ -3,8 +3,8 @@
         "name": "local",
         "chain_id": "2152",
         "endpoint": "http://127.0.0.1:8545",
-        "participant": "b501fc5879f214ee8be2832e43955ac0f19e20d1f7e33436d6746ac889dc043d",
-        "campaigner": "b501fc5879f214ee8be2832e43955ac0f19e20d1f7e33436d6746ac889dc043d",
+        "participant": "8ea5974517769211efd4af5814ea1600ba888b7786f7df5e26dc3d6bab6822bc",
+        "campaigner": "8ea5974517769211efd4af5814ea1600ba888b7786f7df5e26dc3d6bab6822bc",
         "randao": "0xfB45f8B9705FFA9d05D42b72E73afE7E2ceEa860",
         "opts": {
             "gas_limit": "1000000",
@@ -14,7 +14,7 @@
             "min_rate_of_return": 50,
             "min_reveal_window": 7,
             "max_reveal_delay": 6,
-            "max_campaigns": 1,
+            "max_campaigns": 10,
             "start_block": 0
         }
     },

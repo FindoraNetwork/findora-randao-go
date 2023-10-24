@@ -1,3 +1,4 @@
 abi
 bin/
 contract/randao.go
+.vscode/

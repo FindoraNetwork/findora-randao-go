@@ -21,23 +21,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-var CONF_FILE = "config_debug0.json"
-
 func main() {
-	fmt.Println("campaign main")
+	Command()
 
-	dir, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(dir)
-
-	conf_str, err := os.ReadFile(CONF_FILE)
+	conf_str, err := os.ReadFile(Config)
 	if err != nil {
 		fmt.Println("config file read error: ", err.Error())
 		panic(err)
 	}
-
 	var conf model.Config
 	err = json.Unmarshal(conf_str, &conf)
 	if err != nil {
@@ -50,18 +41,15 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("ethclient.Dial error: %s", err.Error()))
 	}
-
 	randao, err := contract.NewRandao(common.HexToAddress(conf.Chain.Randao), cli)
 	if err != nil {
 		panic(fmt.Sprintf("contract.NewRandao error: %s", err.Error()))
 	}
 	fmt.Println("Randao address: ", conf.Chain.Randao)
-
 	randaoAbi, err := abi.JSON(strings.NewReader(contract.RandaoABI))
 	if err != nil {
 		panic(fmt.Sprintf("abi.JSON error: %s", err.Error()))
 	}
-
 	chainID, err := cli.ChainID(context.Background())
 	if err != nil {
 		panic(fmt.Sprintf("cli.ChainID error: %s", err.Error()))

@@ -21,7 +21,7 @@ func WaitBlocks(cli *ethclient.Client, bnum uint64) error {
 		if curr_block_num >= bnum {
 			break
 		}
-		fmt.Println("curr block num: ", curr_block_num)
+		// fmt.Println("curr block num: ", curr_block_num)
 		time.Sleep(500 * time.Millisecond)
 	}
 	return nil
