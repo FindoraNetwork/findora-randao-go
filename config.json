@@ -18,6 +18,5 @@
             "start_block": 0
         }
     },
-    "campagin_ids_path": "campaigns",
     "http_listen": "127.0.0.1:3000"
 }

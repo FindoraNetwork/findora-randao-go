@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -94,6 +96,12 @@ func ReadCampaignIds(campaign_ids_path string) (campaign_ids1 map[string]struct{
 	for campaign_id := range campaign_ids1 {
 		campaign_ids2 = append(campaign_ids2, campaign_id)
 	}
+
+	sort.Slice(campaign_ids2, func(i, j int) bool {
+		var campaign_id1, _ = big.NewInt(0).SetString(campaign_ids2[i], 10)
+		var campaign_id2, _ = big.NewInt(0).SetString(campaign_ids2[j], 10)
+		return campaign_id1.Cmp(campaign_id2) == -1
+	})
 
 	return campaign_ids1, campaign_ids2, nil
 }

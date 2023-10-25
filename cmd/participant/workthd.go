@@ -25,7 +25,7 @@ import (
 
 type WorkTask struct {
 	taskStatus    *TaskStatus
-	randao        *randao.Randao
+	randao1       *randao.Randao
 	cli           *ethclient.Client
 	key           *ecdsa.PrivateKey
 	chainID       *big.Int
@@ -48,12 +48,12 @@ type TaskResult struct {
 }
 
 func NewWorkTask(taskStatus *TaskStatus,
-	randao *randao.Randao,
+	randao1 *randao.Randao,
 	cli *ethclient.Client,
 	key *ecdsa.PrivateKey,
 	chainID *big.Int,
 	isNewCampagin bool) *WorkTask {
-	var workthd = WorkTask{taskStatus, randao, cli, key, chainID, isNewCampagin}
+	var workthd = WorkTask{taskStatus, randao1, cli, key, chainID, isNewCampagin}
 	return &workthd
 }
 
@@ -65,7 +65,7 @@ func (t *WorkTask) Step1() (err error) {
 		err = errors.Wrap(err, "genRandomU256 error!")
 		return
 	}
-	_hs, err := t.randao.ShaCommit(&bind.CallOpts{
+	_hs, err := t.randao1.ShaCommit(&bind.CallOpts{
 		Pending:     false,
 		From:        common.Address{},
 		BlockNumber: nil,
@@ -145,9 +145,8 @@ func (t *WorkTask) Step2() (err error) {
 	}
 
 	txLock.Lock()
-	defer func() {
-		txLock.Unlock()
-	}()
+	defer txLock.Unlock()
+
 	var pendingNonce uint64
 	pendingNonce, err = t.cli.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(t.key.PublicKey))
 	if err != nil {
@@ -163,7 +162,7 @@ func (t *WorkTask) Step2() (err error) {
 	// }
 	// txOpts.GasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
 	txOpts.Value = deposit
-	tx, err := t.randao.Commit(txOpts, campaignId, _hs)
+	tx, err := t.randao1.Commit(txOpts, campaignId, _hs)
 	if err != nil {
 		err = errors.Wrap(err, "Commit error!!!")
 		return
@@ -243,9 +242,8 @@ func (t *WorkTask) Step3() (err error) {
 	}
 
 	txLock.Lock()
-	defer func() {
-		txLock.Unlock()
-	}()
+	defer txLock.Unlock()
+
 	var pendingNonce uint64
 	pendingNonce, err = t.cli.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(t.key.PublicKey))
 	if err != nil {
@@ -260,7 +258,7 @@ func (t *WorkTask) Step3() (err error) {
 	// 	return
 	// }
 	// txOpts.GasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
-	tx, err = t.randao.Reveal(txOpts, campainId, _s)
+	tx, err = t.randao1.Reveal(txOpts, campainId, _s)
 	if err != nil {
 		err = errors.Wrap(err, "Reveal error!!!")
 		return
@@ -321,6 +319,7 @@ func (t *WorkTask) Step4() (err error) {
 	}
 
 	txLock.Lock()
+
 	var pendingNonce uint64
 	pendingNonce, err = t.cli.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(t.key.PublicKey))
 	if err != nil {
@@ -336,7 +335,7 @@ func (t *WorkTask) Step4() (err error) {
 	// 	return
 	// }
 	// txOpts.GasPrice = gasPrice
-	tx, err = t.randao.GetMyBounty(txOpts, campainId)
+	tx, err = t.randao1.GetMyBounty(txOpts, campainId)
 	if err != nil {
 		err = errors.Wrap(err, "GetMyBounty error!!!")
 		txLock.Unlock()
@@ -506,4 +505,26 @@ func StoreTaskStatusFile(campignsPath string, taskStatus *TaskStatus) (err error
 	}
 
 	return nil
+}
+
+var (
+	CampignIdsFromChain     map[uint64]struct{}
+	CampignIdsFromChainLock sync.Mutex
+)
+
+func CampaignIdsUpdateFromChain(randao1 *randao.Randao) {
+	logCampaignAdded := make(chan *randao.RandaoLogCampaignAdded)
+	sub, err := randao1.WatchLogCampaignAdded(&bind.WatchOpts{}, logCampaignAdded, nil, nil, nil)
+	if err != nil {
+		panic(fmt.Sprintf("WatchLogCampaignAdded watch create failed: %s", err.Error()))
+	}
+
+	for {
+		select {
+		case err := <-sub.Err():
+			panic(fmt.Sprintf("WatchLogCampaignAdded subscribe error: %s", err.Error()))
+		case evt := <-logCampaignAdded:
+			fmt.Println("event logCampaignAdded: %s\n", evt.CampaignID.String())
+		}
+	}
 }

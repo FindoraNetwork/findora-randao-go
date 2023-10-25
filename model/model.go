@@ -3,9 +3,9 @@ package model
 import randao "findora/randao/contract"
 
 type Config struct {
-	Http_listen     string `json:"http_listen"`
-	CampaginIdsPath string `json:"campagin_ids_path"`
-	Chain           struct {
+	Http_listen string `json:"http_listen"`
+	// CampaginIdsPath string `json:"campagin_ids_path"`
+	Chain struct {
 		Name        string `json:"name"`
 		ChainId     string `json:"chain_id"`
 		Endpoint    string `json:"endpoint"`
@@ -38,17 +38,17 @@ type CampaignInfo struct {
 	RevealsNum     uint32 `json:"revealsNum"`
 }
 
-func CampaignInfoConvert(src *randao.IRandaoCampaignInfo) (dest *CampaignInfo) {
+func CampaignInfoConvert(campaignInfo *randao.IRandaoCampaignInfo) (dest *CampaignInfo) {
 	dest = &CampaignInfo{
-		Bnum:           src.Bnum.String(),
-		Deposit:        src.Deposit.String(),
-		CommitBalkline: src.CommitBalkline,
-		CommitDeadline: src.CommitDeadline,
-		Random:         src.Random.String(),
-		Settled:        src.Settled,
-		Bountypot:      src.Bountypot.String(),
-		CommitNum:      src.CommitNum,
-		RevealsNum:     src.RevealsNum,
+		Bnum:           campaignInfo.Bnum.String(),
+		Deposit:        campaignInfo.Deposit.String(),
+		CommitBalkline: campaignInfo.CommitBalkline,
+		CommitDeadline: campaignInfo.CommitDeadline,
+		Random:         campaignInfo.Random.String(),
+		Settled:        campaignInfo.Settled,
+		Bountypot:      campaignInfo.Bountypot.String(),
+		CommitNum:      campaignInfo.CommitNum,
+		RevealsNum:     campaignInfo.RevealsNum,
 	}
 
 	return

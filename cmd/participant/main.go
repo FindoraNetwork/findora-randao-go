@@ -24,7 +24,12 @@ func main() {
 		panic(fmt.Sprintf("command parse error: %s\n", err.Error()))
 	}
 
-	conf_str, err := os.ReadFile(CmdOpt1.Config)
+	configPath, err := filepath.Abs(CmdOpt1.Config)
+	if err != nil {
+		panic(fmt.Sprintf("filepath.Abs error: %s\n", err.Error()))
+	}
+
+	conf_str, err := os.ReadFile(configPath)
 	if err != nil {
 		panic(fmt.Sprintf("config file read error: %s\n", err.Error()))
 	}
@@ -55,7 +60,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("ethclient.Dial error: %s\n", err.Error()))
 	}
-	randao, err := randao.NewRandao(common.HexToAddress(conf.Chain.Randao), cli)
+	randao1, err := randao.NewRandao(common.HexToAddress(conf.Chain.Randao), cli)
 	if err != nil {
 		panic(fmt.Sprintf("NewRandao error: %s\n", err.Error()))
 	}
@@ -68,7 +73,9 @@ func main() {
 		panic(fmt.Sprintf("cli.ChainID error: %s\n", err.Error()))
 	}
 
-	_, campaignIds, err := utils.ReadCampaignIds(conf.CampaginIdsPath)
+	CampaignIdsUpdateFromChain(randao1)
+
+	_, campaignIds, err := utils.ReadCampaignIds(CmdOpt1.CampaignsPath)
 	if err != nil {
 		panic(fmt.Sprintf("ReadCampaignIds error: %s\n", err.Error()))
 	}
@@ -86,7 +93,7 @@ func main() {
 	for {
 		var campaignId *big.Int
 		var isNewCampagin = true
-		campaignId, isNewCampagin, err = getCampaignId(&campaignIds, CmdOpt1.CampaignsPath, randao)
+		campaignId, isNewCampagin, err = getCampaignId(&campaignIds, CmdOpt1.CampaignsPath, randao1)
 		if err != nil {
 			fmt.Println("getCampaignId error: ", err)
 			handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
@@ -97,7 +104,7 @@ func main() {
 		var err error
 		if isNewCampagin {
 			if campaignId.Cmp(maxCampaignId) == 1 {
-				taskStatus, err = getTaskStatusFromChain(campaignId, randao)
+				taskStatus, err = getTaskStatusFromChain(campaignId, randao1)
 				maxCampaignId = campaignId
 			} else {
 				handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
@@ -105,7 +112,14 @@ func main() {
 				continue
 			}
 		} else {
-			taskStatus, err = getTaskStatusFromFile(CmdOpt1.CampaignsPath, campaignId)
+			if campaignId.Cmp(maxCampaignId) == 1 {
+				taskStatus, err = getTaskStatusFromFile(CmdOpt1.CampaignsPath, campaignId)
+				maxCampaignId = campaignId
+			} else {
+				handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
+				// fmt.Println("campaginId have already be used!!!")
+				continue
+			}
 		}
 		if err != nil {
 			fmt.Printf("getTaskStatus error: %s\n", err.Error())
@@ -117,7 +131,7 @@ func main() {
 			"taskStatus:", *taskStatus)
 
 		var workTask *WorkTask = NewWorkTask(taskStatus,
-			randao,
+			randao1,
 			cli,
 			privateKeyECDSA,
 			chainID,
@@ -181,7 +195,7 @@ func handleTaskResult(subTaskRets chan *TaskResult, currTaskCnt *uint64, maxTask
 	}
 }
 
-func getCampaignId(campaignIds *[]string, campignsPath string, randao *randao.Randao) (campaignId *big.Int, isNewCampagin bool, err error) {
+func getCampaignId(campaignIds *[]string, campignsPath string, randao1 *randao.Randao) (campaignId *big.Int, isNewCampagin bool, err error) {
 	var campaignId_s string
 	// time.Sleep(time.Second * 2)
 	if len(*campaignIds) != 0 {
@@ -199,7 +213,7 @@ func getCampaignId(campaignIds *[]string, campignsPath string, randao *randao.Ra
 		isNewCampagin = false
 	} else {
 		var numCampaigns *big.Int
-		numCampaigns, err = randao.NumCampaigns(&bind.CallOpts{
+		numCampaigns, err = randao1.NumCampaigns(&bind.CallOpts{
 			Pending:     false,
 			From:        common.Address{},
 			BlockNumber: nil,
@@ -216,7 +230,7 @@ func getCampaignId(campaignIds *[]string, campignsPath string, randao *randao.Ra
 	return
 }
 
-func getTaskStatusFromChain(campaignId *big.Int, randao *randao.Randao) (taskstatus *TaskStatus, err error) {
+func getTaskStatusFromChain(campaignId *big.Int, randao1 *randao.Randao) (taskstatus *TaskStatus, err error) {
 	var ret = &TaskStatus{
 		CampaignId:   "",
 		Step:         0,
@@ -226,7 +240,7 @@ func getTaskStatusFromChain(campaignId *big.Int, randao *randao.Randao) (tasksta
 		RandaoNum:    "",
 		CampaignInfo: model.CampaignInfo{},
 	}
-	_campaignInfo, err := randao.GetCampaign(&bind.CallOpts{
+	_campaignInfo, err := randao1.GetCampaign(&bind.CallOpts{
 		Pending:     false,
 		From:        common.Address{},
 		BlockNumber: nil,
