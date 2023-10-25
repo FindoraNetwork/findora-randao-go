@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -19,8 +20,7 @@ import (
 )
 
 func main() {
-	_, err := CMDParse()
-	if err != nil {
+	if _, err := CMDParse(); err != nil {
 		panic(fmt.Sprintf("command parse error: %s\n", err.Error()))
 	}
 
@@ -28,12 +28,28 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("config file read error: %s\n", err.Error()))
 	}
+
 	var conf model.Config
-	err = json.Unmarshal(conf_str, &conf)
-	if err != nil {
+	if err = json.Unmarshal(conf_str, &conf); err != nil {
 		panic(fmt.Sprintf("config file parse error: %s\n", err.Error()))
 	}
 	fmt.Println("config: ", conf)
+
+	if err := os.MkdirAll(CmdOpt1.CampaignsPath, 0755); err != nil {
+		panic(fmt.Sprintf("CampaignsPath open or create failed: %s\n", err.Error()))
+	}
+
+	_, err = os.Stat(filepath.Join(CmdOpt1.CampaignsPath, "uuid.txt"))
+	if os.IsNotExist(err) {
+		file, err := os.Create(filepath.Join(CmdOpt1.CampaignsPath, "uuid.txt"))
+		if err != nil {
+			panic(fmt.Sprintf("Campaigns file create failed: %s\n", err.Error()))
+		}
+		file.Close()
+	} else if err == nil {
+	} else {
+		panic(fmt.Sprintf("Campaigns file os.Stat error: %s\n", err.Error()))
+	}
 
 	cli, err := ethclient.Dial(conf.Chain.Endpoint)
 	if err != nil {
@@ -68,12 +84,12 @@ func main() {
 	}
 
 	for {
-		time.Sleep(time.Millisecond * 1000)
 		var campaignId *big.Int
 		var isNewCampagin = true
 		campaignId, isNewCampagin, err = getCampaignId(&campaignIds, CmdOpt1.CampaignsPath, randao)
 		if err != nil {
 			fmt.Println("getCampaignId error: ", err)
+			handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
 			continue
 		}
 
@@ -84,6 +100,7 @@ func main() {
 				taskStatus, err = getTaskStatusFromChain(campaignId, randao)
 				maxCampaignId = campaignId
 			} else {
+				handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
 				// fmt.Println("campaginId have already be used!!!")
 				continue
 			}
@@ -92,6 +109,7 @@ func main() {
 		}
 		if err != nil {
 			fmt.Printf("getTaskStatus error: %s\n", err.Error())
+			handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
 			continue
 		}
 		fmt.Println("campaignId:", campaignId,
@@ -127,12 +145,13 @@ func handleTaskResult(subTaskRets chan *TaskResult, currTaskCnt *uint64, maxTask
 				fmt.Println("participate error1, currTaskCnt:", *currTaskCnt,
 					"campaignId:", ret1.campaignId,
 					"err:", ret1.err)
+			} else {
+				fmt.Println("participate success1, currTaskCnt:", *currTaskCnt,
+					"campaignId:", ret1.campaignId)
 			}
 
 			utils.RemoveCampaignId(CmdOpt1.CampaignsPath, ret1.campaignId.String())
 			RemovesTaskStatusFile(CmdOpt1.CampaignsPath, ret1.campaignId.String())
-			fmt.Println("participate success1, currTaskCnt:", *currTaskCnt,
-				"campaignId:", ret1.campaignId)
 			(*currTaskCnt)--
 		default:
 			// read subtask result until currTaskCnt < maxTaskCnt.
@@ -144,14 +163,15 @@ func handleTaskResult(subTaskRets chan *TaskResult, currTaskCnt *uint64, maxTask
 						fmt.Println("participate error2, currTaskCnt:", *currTaskCnt,
 							"campaignId:", ret1.campaignId,
 							"err:", ret1.err)
+					} else {
+						fmt.Println("participate success2, currTaskCnt:", *currTaskCnt,
+							"campaignId:", ret1.campaignId,
+						)
 					}
 
 					utils.RemoveCampaignId(CmdOpt1.CampaignsPath, ret1.campaignId.String())
 					RemovesTaskStatusFile(CmdOpt1.CampaignsPath, ret1.campaignId.String())
 					(*currTaskCnt)--
-					fmt.Println("participate success2, currTaskCnt:", *currTaskCnt,
-						"campaignId:", ret1.campaignId,
-					)
 				default:
 					// fmt.Println("inner layer default loop currTaskCnt: ", *currTaskCnt)
 					time.Sleep(time.Millisecond * 1000)
@@ -172,6 +192,7 @@ func getCampaignId(campaignIds *[]string, campignsPath string, randao *randao.Ra
 
 		if !isValid {
 			utils.RemoveCampaignId(campignsPath, campaignId_s)
+			RemovesTaskStatusFile(campignsPath, campaignId_s)
 			err = errors.New("campaignId format is error!!!")
 			return
 		}

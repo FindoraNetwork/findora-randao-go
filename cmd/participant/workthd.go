@@ -461,13 +461,15 @@ func ReadTaskStatusFile(campignsPath string, campaignId string) (taskStatus *Tas
 	taskstatus_str, err := os.ReadFile(filepath.Join(campignsPath, campaignId))
 	if err != nil {
 		utils.RemoveCampaignId(campignsPath, campaignId)
-		return nil, errors.Wrap(err, "RemovesTaskStatusFile error1")
+		RemovesTaskStatusFile(campignsPath, campaignId)
+		return nil, errors.Wrap(err, "ReadTaskStatusFile error1")
 	}
 
 	err = json.Unmarshal(taskstatus_str, &taskStatus)
 	if err != nil {
 		utils.RemoveCampaignId(campignsPath, campaignId)
-		return nil, errors.Wrap(err, "RemovesTaskStatusFile error2")
+		RemovesTaskStatusFile(campignsPath, campaignId)
+		return nil, errors.Wrap(err, "ReadTaskStatusFile error2")
 	}
 
 	return taskStatus, nil
@@ -490,14 +492,14 @@ func StoreTaskStatusFile(campignsPath string, taskStatus *TaskStatus) (err error
 		return
 	}
 
-	f, err := os.OpenFile(filepath.Join(campignsPath, taskStatus.CampaignId), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0666)
+	file, err := os.OpenFile(filepath.Join(campignsPath, taskStatus.CampaignId), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0666)
 	if err != nil {
 		err = errors.Wrap(err, "StoreTaskStatusFile error2")
 		return
 	}
-	defer f.Close()
+	defer file.Close()
 
-	_, err = f.Write(taskStatus_s)
+	_, err = file.Write(taskStatus_s)
 	if err != nil {
 		err = errors.Wrap(err, "StoreTaskStatusFile error3")
 		return
