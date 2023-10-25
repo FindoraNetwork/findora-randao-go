@@ -22,47 +22,48 @@ import (
 )
 
 func main() {
-	Command()
-
-	conf_str, err := os.ReadFile(Config)
+	_, err := CMDParse()
 	if err != nil {
-		fmt.Println("config file read error: ", err.Error())
-		panic(err)
+		panic(fmt.Sprintf("command parse error: %s\n", err.Error()))
+	}
+
+	conf_str, err := os.ReadFile(CmdOpt1.Config)
+	if err != nil {
+		panic(fmt.Sprintf("config file read error: %s\n", err.Error()))
 	}
 	var conf model.Config
 	err = json.Unmarshal(conf_str, &conf)
 	if err != nil {
-		fmt.Println("config file parse error: ", err.Error())
-		panic(err)
+		panic(fmt.Sprintf("config file parse error: %s\n", err.Error()))
 	}
 	fmt.Println("config: ", conf)
 
 	cli, err := ethclient.Dial(conf.Chain.Endpoint)
 	if err != nil {
-		panic(fmt.Sprintf("ethclient.Dial error: %s", err.Error()))
+		panic(fmt.Sprintf("ethclient.Dial error: %s\n", err.Error()))
 	}
 	randao, err := contract.NewRandao(common.HexToAddress(conf.Chain.Randao), cli)
 	if err != nil {
-		panic(fmt.Sprintf("contract.NewRandao error: %s", err.Error()))
+		panic(fmt.Sprintf("contract.NewRandao error: %s\n", err.Error()))
 	}
 	fmt.Println("Randao address: ", conf.Chain.Randao)
 	randaoAbi, err := abi.JSON(strings.NewReader(contract.RandaoABI))
 	if err != nil {
-		panic(fmt.Sprintf("abi.JSON error: %s", err.Error()))
+		panic(fmt.Sprintf("abi.JSON error: %s\n", err.Error()))
 	}
 	chainID, err := cli.ChainID(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("cli.ChainID error: %s", err.Error()))
+		panic(fmt.Sprintf("cli.ChainID error: %s\n", err.Error()))
 	}
 	privateKeyECDSA, err := crypto.HexToECDSA(conf.Chain.Campaigner)
 	if err != nil {
-		panic(fmt.Sprintf("crypto.HexToECDSA error: %s", err.Error()))
+		panic(fmt.Sprintf("crypto.HexToECDSA error: %s\n", err.Error()))
 	}
 	fmt.Println("privateKeyECDSA address: ", conf.Chain.Campaigner)
 
 	block_num, err := cli.BlockNumber(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("cli.BlockNumber error: %s", err.Error()))
+		panic(fmt.Sprintf("cli.BlockNumber error: %s\n", err.Error()))
 	}
 	var bnum *big.Int = big.NewInt(0).SetUint64(block_num + 20)
 	var deposit *big.Int = big.NewInt(1000_000_000_000_000_000)
@@ -71,7 +72,7 @@ func main() {
 	var maxFee *big.Int = big.NewInt(10_000_000_000_000_000)
 	data, err := randaoAbi.Pack("newCampaign", bnum, deposit, commit_balkline, commit_deadline, maxFee)
 	if err != nil {
-		panic(fmt.Sprintf("randaoAbi.Pack error: %s", err.Error()))
+		panic(fmt.Sprintf("randaoAbi.Pack error: %s\n", err.Error()))
 	}
 
 	to := common.HexToAddress(conf.Chain.Randao)
@@ -88,7 +89,7 @@ func main() {
 
 	gasPrice, err := cli.SuggestGasPrice(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("cli.SuggestGasPrice error: %s", err.Error()))
+		panic(fmt.Sprintf("cli.SuggestGasPrice error: %s\n", err.Error()))
 	}
 	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(100))
 	gasLimit = gasLimit * 100
@@ -100,18 +101,18 @@ func main() {
 	// opts.GasLimit = gasLimit
 	opts, err := bind.NewKeyedTransactorWithChainID(privateKeyECDSA, chainID)
 	if err != nil {
-		panic(fmt.Sprintf("bind.NewKeyedTransactorWithChainID error: %s", err.Error()))
+		panic(fmt.Sprintf("bind.NewKeyedTransactorWithChainID error: %s\n", err.Error()))
 	}
 	opts.Value = deposit
 	tx, err := randao.NewCampaign(opts, bnum, deposit, commit_balkline, commit_deadline, maxFee)
 	if err != nil {
-		panic(fmt.Sprintf("randao.NewCampaign error: %s", err.Error()))
+		panic(fmt.Sprintf("randao.NewCampaign error: %s\n", err.Error()))
 	}
 	fmt.Println("tx hash", tx.Hash())
 
 	receipt, err := bind.WaitMined(context.Background(), cli, tx)
 	if err != nil {
-		panic(fmt.Sprintf("cli.TransactionReceipt error: %s", err.Error()))
+		panic(fmt.Sprintf("cli.TransactionReceipt error: %s\n", err.Error()))
 	}
 	if receipt.Status != 1 {
 		panic("receipt.Status not equal 1")
@@ -121,7 +122,7 @@ func main() {
 	log := receipt.Logs[0]
 	ret1, err := randao.ParseLogCampaignAdded(*log)
 	if err != nil {
-		panic(fmt.Sprintf("ParseLogCampaignAdded error: %s", err.Error()))
+		panic(fmt.Sprintf("ParseLogCampaignAdded error: %s\n", err.Error()))
 	}
 	fmt.Println("event LogCampaignAdded: ", ret1)
 
@@ -131,19 +132,19 @@ func main() {
 
 	opts, err = bind.NewKeyedTransactorWithChainID(privateKeyECDSA, chainID)
 	if err != nil {
-		panic(fmt.Sprintf("bind.NewKeyedTransactorWithChainID error: %s", err.Error()))
+		panic(fmt.Sprintf("bind.NewKeyedTransactorWithChainID error: %s\n", err.Error()))
 	}
 	tx, err = randao.GetRandom(
 		opts,
 		ret1.CampaignID)
 	if err != nil {
-		panic(fmt.Sprintf("randao.GetRandom error: %s", err.Error()))
+		panic(fmt.Sprintf("randao.GetRandom error: %s\n", err.Error()))
 	}
 	fmt.Println("tx hash", tx.Hash())
 
 	receipt, err = bind.WaitMined(context.Background(), cli, tx)
 	if err != nil {
-		panic(fmt.Sprintf("cli.TransactionReceipt error: %s", err.Error()))
+		panic(fmt.Sprintf("cli.TransactionReceipt error: %s\n", err.Error()))
 	}
 	if receipt.Status != 1 {
 		panic("receipt.Status not equal 1")
@@ -153,7 +154,7 @@ func main() {
 	log = receipt.Logs[0]
 	ret2, err := randao.ParseLogGetRandom(*log)
 	if err != nil {
-		panic(fmt.Sprintf("ParseLogGetRandom error: %s", err.Error()))
+		panic(fmt.Sprintf("ParseLogGetRandom error: %s\n", err.Error()))
 	}
 	fmt.Println("event LogGetRandom: ", ret2)
 

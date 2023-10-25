@@ -1,0 +1,4 @@
+[submodule "randao"]
+	path = contract/randao
+	url = https://github.com/FindoraNetwork/findora-randao.git
+	branch = master

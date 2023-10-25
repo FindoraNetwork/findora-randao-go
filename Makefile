@@ -5,7 +5,7 @@ rebuild: clean build_debug
 rebuild_release: clean build_release
 
 compile:
-	solc contract/IRandao.sol --abi --bin -o ./abi
+	solc contract/randao/eth/contracts/IRandao.sol --abi --bin -o ./abi
 
 abigen: 
 	abigen --abi abi/IRandao.abi --bin abi/IRandao.bin --pkg contract --type randao  --out contract/randao.go

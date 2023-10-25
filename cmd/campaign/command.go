@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
-var Cmd = &cobra.Command{
+var CMDParser = &cobra.Command{
 	Use:     "campaigns",
 	Example: "campaigns",
 	Short:   "randao campaigns client.",
@@ -24,13 +25,20 @@ var Cmd = &cobra.Command{
 	},
 }
 
-var Config string
+type CmdOpt struct {
+	Config string
+}
 
-func Command() {
-	Cmd.Flags().StringVarP(&Config, "config", "c", "config.json", "config file path")
+var CmdOpt1 CmdOpt
 
-	err := Cmd.Execute()
+func CMDParse() (cmdOpt CmdOpt, err error) {
+	CMDParser.Flags().StringVarP(&CmdOpt1.Config, "config", "c", "config.json", "config file path")
+
+	err = CMDParser.Execute()
 	if err != nil {
-		fmt.Println("command parameters error!!!")
+		err = errors.Wrap(err, "command parameters error!!!")
+		return
 	}
+
+	return CmdOpt1, nil
 }

@@ -18,19 +18,19 @@ func TestStoreCampaignId(t *testing.T) {
 	var campaign_ids_path = "./campaigns"
 	utils.StoreCampaignId(campaign_ids_path, "111111")
 	utils.StoreCampaignId(campaign_ids_path, "222222")
-	var campaign_ids1, campaign_ids2 = utils.ReadCampaignIds(campaign_ids_path)
+	var campaign_ids1, campaign_ids2, _ = utils.ReadCampaignIds(campaign_ids_path)
 	printCampaignIds(campaign_ids1, campaign_ids2)
 
 	utils.RemoveCampaignId(campaign_ids_path, "111111")
-	campaign_ids1, campaign_ids2 = utils.ReadCampaignIds(campaign_ids_path)
+	campaign_ids1, campaign_ids2, _ = utils.ReadCampaignIds(campaign_ids_path)
 	printCampaignIds(campaign_ids1, campaign_ids2)
 
 	utils.StoreCampaignId(campaign_ids_path, "333333")
-	campaign_ids1, campaign_ids2 = utils.ReadCampaignIds(campaign_ids_path)
+	campaign_ids1, campaign_ids2, _ = utils.ReadCampaignIds(campaign_ids_path)
 	printCampaignIds(campaign_ids1, campaign_ids2)
 
 	utils.DeleteAllCampaignIds(campaign_ids_path)
-	campaign_ids1, campaign_ids2 = utils.ReadCampaignIds(campaign_ids_path)
+	campaign_ids1, campaign_ids2, _ = utils.ReadCampaignIds(campaign_ids_path)
 	printCampaignIds(campaign_ids1, campaign_ids2)
 }
 

@@ -19,39 +19,43 @@ import (
 )
 
 func main() {
-	Command()
-
-	conf_str, err := os.ReadFile(Config)
+	_, err := CMDParse()
 	if err != nil {
-		fmt.Println("config file read error: ", err.Error())
-		panic(err)
+		panic(fmt.Sprintf("command parse error: %s\n", err.Error()))
+	}
+
+	conf_str, err := os.ReadFile(CmdOpt1.Config)
+	if err != nil {
+		panic(fmt.Sprintf("config file read error: %s\n", err.Error()))
 	}
 	var conf model.Config
 	err = json.Unmarshal(conf_str, &conf)
 	if err != nil {
-		fmt.Println("config file parse error: ", err.Error())
-		panic(err)
+		panic(fmt.Sprintf("config file parse error: %s\n", err.Error()))
 	}
 	fmt.Println("config: ", conf)
 
 	cli, err := ethclient.Dial(conf.Chain.Endpoint)
 	if err != nil {
-		panic(fmt.Sprintf("ethclient.Dial error: %s", err.Error()))
+		panic(fmt.Sprintf("ethclient.Dial error: %s\n", err.Error()))
 	}
 	randao, err := randao.NewRandao(common.HexToAddress(conf.Chain.Randao), cli)
 	if err != nil {
-		panic(fmt.Sprintf("NewRandao error: %s", err.Error()))
+		panic(fmt.Sprintf("NewRandao error: %s\n", err.Error()))
 	}
 	privateKeyECDSA, err := crypto.HexToECDSA(conf.Chain.Campaigner)
 	if err != nil {
-		panic(fmt.Sprintf("crypto.HexToECDSA( error: %s", err.Error()))
+		panic(fmt.Sprintf("crypto.HexToECDSA( error: %s\n", err.Error()))
 	}
 	chainID, err := cli.ChainID(context.Background())
 	if err != nil {
-		panic(fmt.Sprintf("cli.ChainID error: %s", err.Error()))
+		panic(fmt.Sprintf("cli.ChainID error: %s\n", err.Error()))
 	}
 
-	var _, campaignIds = utils.ReadCampaignIds(conf.CampaginIdsPath)
+	_, campaignIds, err := utils.ReadCampaignIds(conf.CampaginIdsPath)
+	if err != nil {
+		panic(fmt.Sprintf("ReadCampaignIds error: %s\n", err.Error()))
+	}
 	utils.PrintCampaignIds2(campaignIds)
 
 	var maxTaskCnt = conf.Chain.Opts.MaxCampaigns
@@ -67,7 +71,7 @@ func main() {
 		time.Sleep(time.Millisecond * 1000)
 		var campaignId *big.Int
 		var isNewCampagin = true
-		campaignId, isNewCampagin, err = getCampaignId(&campaignIds, Campaigns, randao)
+		campaignId, isNewCampagin, err = getCampaignId(&campaignIds, CmdOpt1.CampaignsPath, randao)
 		if err != nil {
 			fmt.Println("getCampaignId error: ", err)
 			continue
@@ -84,10 +88,10 @@ func main() {
 				continue
 			}
 		} else {
-			taskStatus, err = getTaskStatusFromFile(campaignId, Campaigns)
+			taskStatus, err = getTaskStatusFromFile(CmdOpt1.CampaignsPath, campaignId)
 		}
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("getTaskStatus error: %s\n", err.Error())
 			continue
 		}
 		fmt.Println("campaignId:", campaignId,
@@ -100,9 +104,14 @@ func main() {
 			privateKeyECDSA,
 			chainID,
 			isNewCampagin)
-		go workTask.DoTask(subTaskRets)
 
-		currTaskCnt++
+		err = utils.StoreCampaignId(CmdOpt1.CampaignsPath, campaignId.String())
+		if err == nil {
+			go workTask.DoTask(subTaskRets)
+			currTaskCnt++
+		} else {
+			fmt.Printf("main StoreCampaignId err: %s\n", err.Error())
+		}
 		handleTaskResult(subTaskRets, &currTaskCnt, maxTaskCnt)
 	}
 
@@ -119,9 +128,9 @@ func handleTaskResult(subTaskRets chan *TaskResult, currTaskCnt *uint64, maxTask
 					"campaignId:", ret1.campaignId,
 					"err:", ret1.err)
 			}
-			if !ret1.isNewCampagin {
-				utils.RemoveCampaignId(Campaigns, ret1.campaignId.String())
-			}
+
+			utils.RemoveCampaignId(CmdOpt1.CampaignsPath, ret1.campaignId.String())
+			RemovesTaskStatusFile(CmdOpt1.CampaignsPath, ret1.campaignId.String())
 			fmt.Println("participate success1, currTaskCnt:", *currTaskCnt,
 				"campaignId:", ret1.campaignId)
 			(*currTaskCnt)--
@@ -136,16 +145,16 @@ func handleTaskResult(subTaskRets chan *TaskResult, currTaskCnt *uint64, maxTask
 							"campaignId:", ret1.campaignId,
 							"err:", ret1.err)
 					}
-					if !ret1.isNewCampagin {
-						utils.RemoveCampaignId(Campaigns, ret1.campaignId.String())
-					}
+
+					utils.RemoveCampaignId(CmdOpt1.CampaignsPath, ret1.campaignId.String())
+					RemovesTaskStatusFile(CmdOpt1.CampaignsPath, ret1.campaignId.String())
 					(*currTaskCnt)--
 					fmt.Println("participate success2, currTaskCnt:", *currTaskCnt,
 						"campaignId:", ret1.campaignId,
 					)
 				default:
 					// fmt.Println("inner layer default loop currTaskCnt: ", *currTaskCnt)
-					time.Sleep(time.Second * 1)
+					time.Sleep(time.Millisecond * 1000)
 				}
 			}
 		}
@@ -188,23 +197,13 @@ func getCampaignId(campaignIds *[]string, campignsPath string, randao *randao.Ra
 
 func getTaskStatusFromChain(campaignId *big.Int, randao *randao.Randao) (taskstatus *TaskStatus, err error) {
 	var ret = &TaskStatus{
-		campaign_id: "",
-		step:        0,
-		hs:          "",
-		s:           "",
-		tx_hash:     "",
-		randao_num:  "",
-		campaign_info: model.CampaignInfo{
-			Bnum:           "",
-			Deposit:        "",
-			CommitBalkline: 0,
-			CommitDeadline: 0,
-			Random:         "",
-			Settled:        false,
-			Bountypot:      "",
-			CommitNum:      0,
-			RevealsNum:     0,
-		},
+		CampaignId:   "",
+		Step:         0,
+		Hs:           "",
+		S:            "",
+		TxHash:       "",
+		RandaoNum:    "",
+		CampaignInfo: model.CampaignInfo{},
 	}
 	_campaignInfo, err := randao.GetCampaign(&bind.CallOpts{
 		Pending:     false,
@@ -221,25 +220,11 @@ func getTaskStatusFromChain(campaignId *big.Int, randao *randao.Randao) (tasksta
 
 	fmt.Println("campaignInfo: ", campaignInfo)
 
-	ret.campaign_info = *campaignInfo
-	ret.campaign_id = campaignId.String()
+	ret.CampaignInfo = *campaignInfo
+	ret.CampaignId = campaignId.String()
 	return ret, nil
 }
 
-func getTaskStatusFromFile(campaignId *big.Int, campignsPath string) (taskstatus *TaskStatus, err error) {
-	var ret = &TaskStatus{}
-
-	taskstatus_str, err := os.ReadFile(campignsPath + campaignId.String())
-	if err != nil {
-		utils.RemoveCampaignId(campignsPath, campaignId.String())
-		return nil, errors.Wrap(err, "task status file read error")
-	}
-
-	err = json.Unmarshal(taskstatus_str, &ret)
-	if err != nil {
-		utils.RemoveCampaignId(campignsPath, campaignId.String())
-		return nil, errors.Wrap(err, "task status file parse error")
-	}
-
-	return ret, nil
+func getTaskStatusFromFile(campignsPath string, campaignId *big.Int) (taskstatus *TaskStatus, err error) {
+	return ReadTaskStatusFile(campignsPath, campaignId.String())
 }

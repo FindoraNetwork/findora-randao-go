@@ -6,11 +6,14 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	randao "findora/randao/contract"
 	model "findora/randao/model"
 	utils "findora/randao/utils"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -29,13 +32,13 @@ type WorkTask struct {
 	isNewCampagin bool
 }
 type TaskStatus struct {
-	campaign_id   string             `json:"campaign_id"`
-	step          uint8              `json:"step"`
-	hs            string             `json:"hs"`
-	s             string             `json:"_s"`
-	tx_hash       string             `json:"tx_hash"`
-	randao_num    string             `json:"randao_num"`
-	campaign_info model.CampaignInfo `json:"campaign_info"`
+	CampaignId   string             `json:"campaign_id"`
+	Step         uint8              `json:"step"`
+	Hs           string             `json:"hs"`
+	S            string             `json:"_s"`
+	TxHash       string             `json:"tx_hash"`
+	RandaoNum    string             `json:"randao_num"`
+	CampaignInfo model.CampaignInfo `json:"campaign_info"`
 }
 
 type TaskResult struct {
@@ -71,17 +74,23 @@ func (t *WorkTask) Step1() (err error) {
 		err = errors.Wrap(err, "ShaCommit error!")
 		return
 	}
-	fmt.Println("ShaCommit success, campaignId:", t.taskStatus.campaign_id, "s:", _s.String(), "hs:", _hs)
+	fmt.Println("ShaCommit success, campaignId:", t.taskStatus.CampaignId, "s:", _s.String(), "hs:", _hs)
 
-	t.taskStatus.s = _s.String()
-	t.taskStatus.hs = base64.StdEncoding.EncodeToString(_hs[:])
-	t.taskStatus.step = 1
+	t.taskStatus.Step = 1
+	t.taskStatus.S = _s.String()
+	t.taskStatus.Hs = base64.StdEncoding.EncodeToString(_hs[:])
+
+	err = StoreTaskStatusFile(CmdOpt1.CampaignsPath, t.taskStatus)
+	if err != nil {
+		err = errors.Wrap(err, "storeTaskStatusToFile err")
+		return
+	}
 	err = nil
 	return
 }
 
 func (t *WorkTask) Step2() (err error) {
-	__hs, err := base64.StdEncoding.DecodeString(t.taskStatus.hs)
+	__hs, err := base64.StdEncoding.DecodeString(t.taskStatus.Hs)
 	if err != nil {
 		err = errors.New("hs string base64 decode error!")
 		return
@@ -93,25 +102,25 @@ func (t *WorkTask) Step2() (err error) {
 	var _hs [32]byte
 	copy(_hs[:], __hs)
 
-	campaignId, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_id, 10)
+	campaignId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
 	if !isValid {
 		err = errors.New("campainId format is error!")
 		return
 	}
-	deposit, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_info.Deposit, 10)
+	deposit, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignInfo.Deposit, 10)
 	if !isValid {
 		err = errors.New("deposit format is error!")
 		return
 	}
 
-	bnum, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_info.Bnum, 10)
+	bnum, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignInfo.Bnum, 10)
 	if !isValid {
 		err = errors.New("bnum format is error!")
 		return
 	}
 
-	var commit_balkline = t.taskStatus.campaign_info.CommitBalkline
-	var commit_deadline = t.taskStatus.campaign_info.CommitDeadline
+	var commit_balkline = t.taskStatus.CampaignInfo.CommitBalkline
+	var commit_deadline = t.taskStatus.CampaignInfo.CommitDeadline
 
 	var balkline = bnum.Uint64() - uint64(commit_balkline)
 	var deadline = bnum.Uint64() - uint64(commit_deadline)
@@ -161,35 +170,41 @@ func (t *WorkTask) Step2() (err error) {
 	}
 
 	var txHash = tx.Hash().Hex()
-	fmt.Println("Commit join success, campaignId:", t.taskStatus.campaign_id, "tx hash:", txHash)
+	fmt.Println("Commit join success, campaignId:", t.taskStatus.CampaignId, "tx hash:", txHash)
 
-	t.taskStatus.tx_hash = txHash
-	t.taskStatus.step = 2
+	t.taskStatus.Step = 2
+	t.taskStatus.TxHash = txHash
+
+	err = StoreTaskStatusFile(CmdOpt1.CampaignsPath, t.taskStatus)
+	if err != nil {
+		err = errors.Wrap(err, "storeTaskStatusToFile err")
+		return
+	}
 	err = nil
 	return
 }
 
 func (t *WorkTask) Step3() (err error) {
 	// step 3
-	campainId, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_id, 10)
+	campainId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
 	if !isValid {
 		err = errors.New("campainId format is error!")
 		return
 	}
 
-	_s, isValid := big.NewInt(0).SetString(t.taskStatus.s, 10)
+	_s, isValid := big.NewInt(0).SetString(t.taskStatus.S, 10)
 	if !isValid {
 		err = errors.New("_s format is error!")
 		return
 	}
 
-	bnum, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_info.Bnum, 10)
+	bnum, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignInfo.Bnum, 10)
 	if !isValid {
 		err = errors.New("bnum format is error!")
 		return
 	}
 
-	var commit_deadline = t.taskStatus.campaign_info.CommitDeadline
+	var commit_deadline = t.taskStatus.CampaignInfo.CommitDeadline
 	var deadline = bnum.Uint64() - uint64(commit_deadline)
 
 	currBnum, err := t.cli.BlockNumber(context.Background())
@@ -203,7 +218,7 @@ func (t *WorkTask) Step3() (err error) {
 	}
 	utils.WaitBlocks(t.cli, deadline)
 
-	var txHash = t.taskStatus.tx_hash
+	var txHash = t.taskStatus.TxHash
 	tx, _, err := t.cli.TransactionByHash(context.Background(), common.HexToHash(txHash))
 	if err != nil {
 		err = errors.Wrap(err, "TransactionByHash error!!!")
@@ -219,7 +234,7 @@ func (t *WorkTask) Step3() (err error) {
 		err = errors.New("Commit receipt.Status not equal 1!!!")
 		return
 	}
-	fmt.Println("Commit exec success, campaignId:", t.taskStatus.campaign_id, "tx receipt:", receipt)
+	fmt.Println("Commit exec success, campaignId:", t.taskStatus.CampaignId, "tx receipt:", receipt)
 
 	txOpts, err := bind.NewKeyedTransactorWithChainID(t.key, t.chainID)
 	if err != nil {
@@ -252,21 +267,28 @@ func (t *WorkTask) Step3() (err error) {
 	}
 
 	txHash = tx.Hash().Hex()
-	fmt.Println("Reveal join success, campaignId:", t.taskStatus.campaign_id, "tx hash:", txHash)
-	t.taskStatus.tx_hash = txHash
-	t.taskStatus.step = 3
+	fmt.Println("Reveal join success, campaignId:", t.taskStatus.CampaignId, "tx hash:", txHash)
+
+	t.taskStatus.Step = 3
+	t.taskStatus.TxHash = txHash
+
+	err = StoreTaskStatusFile(CmdOpt1.CampaignsPath, t.taskStatus)
+	if err != nil {
+		err = errors.Wrap(err, "storeTaskStatusToFile err")
+		return
+	}
 	err = nil
 	return
 }
 
 func (t *WorkTask) Step4() (err error) {
-	campainId, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_id, 10)
+	campainId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
 	if !isValid {
 		err = errors.New("campainId format is error!")
 		return
 	}
 
-	bnum, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_info.Bnum, 10)
+	bnum, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignInfo.Bnum, 10)
 	if !isValid {
 		err = errors.New("bnum format is error!")
 		return
@@ -274,7 +296,7 @@ func (t *WorkTask) Step4() (err error) {
 
 	utils.WaitBlocks(t.cli, bnum.Uint64())
 
-	var txHash = t.taskStatus.tx_hash
+	var txHash = t.taskStatus.TxHash
 	tx, _, err := t.cli.TransactionByHash(context.Background(), common.HexToHash(txHash))
 	if err != nil {
 		err = errors.Wrap(err, "TransactionByHash error!!!")
@@ -290,7 +312,7 @@ func (t *WorkTask) Step4() (err error) {
 		err = errors.New("Reveal receipt.Status not equal 1!!!")
 		return
 	}
-	fmt.Println("Reveal exec success, campaignId:", t.taskStatus.campaign_id, "tx receipt:", receipt)
+	fmt.Println("Reveal exec success, campaignId:", t.taskStatus.CampaignId, "tx receipt:", receipt)
 
 	txOpts, err := bind.NewKeyedTransactorWithChainID(t.key, t.chainID)
 	if err != nil {
@@ -323,7 +345,7 @@ func (t *WorkTask) Step4() (err error) {
 	txLock.Unlock()
 
 	txHash = tx.Hash().Hex()
-	fmt.Println("GetMyBounty join success, campaignId:", t.taskStatus.campaign_id, "tx hash:", txHash)
+	fmt.Println("GetMyBounty join success, campaignId:", t.taskStatus.CampaignId, "tx hash:", txHash)
 
 	receipt, err = bind.WaitMined(context.Background(), t.cli, tx)
 	if err != nil {
@@ -334,10 +356,16 @@ func (t *WorkTask) Step4() (err error) {
 		err = errors.New("GetMyBounty receipt.Status not equal 1!!!")
 		return
 	}
-	fmt.Println("GetMyBounty exec success, campaignId:", t.taskStatus.campaign_id, "tx receipt:", receipt)
+	fmt.Println("GetMyBounty exec success, campaignId:", t.taskStatus.CampaignId, "tx receipt:", receipt)
 
-	t.taskStatus.tx_hash = txHash
-	t.taskStatus.step = 4
+	t.taskStatus.Step = 4
+	t.taskStatus.TxHash = txHash
+
+	err = StoreTaskStatusFile(CmdOpt1.CampaignsPath, t.taskStatus)
+	if err != nil {
+		err = errors.Wrap(err, "storeTaskStatusToFile err")
+		return
+	}
 	err = nil
 	return
 }
@@ -345,7 +373,7 @@ func (t *WorkTask) Step4() (err error) {
 func (t *WorkTask) DoTask(res chan<- *TaskResult) {
 	var ret = &TaskResult{}
 
-	campaignId, isValid := big.NewInt(0).SetString(t.taskStatus.campaign_id, 10)
+	campaignId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
 	if !isValid {
 		ret.err = errors.New("campainId format is error!")
 		res <- ret
@@ -353,7 +381,7 @@ func (t *WorkTask) DoTask(res chan<- *TaskResult) {
 	}
 	ret.campaignId = campaignId
 
-	if t.taskStatus.step == 0 {
+	if t.taskStatus.Step == 0 {
 		err := t.Step1()
 		if err != nil {
 			ret.err = errors.Wrap(err, "step1 error")
@@ -362,7 +390,7 @@ func (t *WorkTask) DoTask(res chan<- *TaskResult) {
 		}
 	}
 
-	if t.taskStatus.step == 1 {
+	if t.taskStatus.Step == 1 {
 		err := t.Step2()
 		if err != nil {
 			ret.err = errors.Wrap(err, "step2 error")
@@ -371,7 +399,7 @@ func (t *WorkTask) DoTask(res chan<- *TaskResult) {
 		}
 	}
 
-	if t.taskStatus.step == 2 {
+	if t.taskStatus.Step == 2 {
 		err := t.Step3()
 		if err != nil {
 			ret.err = errors.Wrap(err, "step3 error")
@@ -380,7 +408,7 @@ func (t *WorkTask) DoTask(res chan<- *TaskResult) {
 		}
 	}
 
-	if t.taskStatus.step == 3 {
+	if t.taskStatus.Step == 3 {
 		err := t.Step4()
 		if err != nil {
 			ret.err = errors.Wrap(err, "step4 error")
@@ -407,7 +435,7 @@ func genRandomU256() (random *big.Int, err error) {
 			return
 		}
 		if n < 8 {
-			err = errors.New(fmt.Sprint("rand number error: %d", n))
+			err = errors.New(fmt.Sprintf("rand number error: %d", n))
 		}
 		num = uint64(binary.LittleEndian.Uint64(buf[:]))
 		m[num] = struct{}{}
@@ -425,4 +453,55 @@ func genRandomU256() (random *big.Int, err error) {
 	}
 
 	return
+}
+
+func ReadTaskStatusFile(campignsPath string, campaignId string) (taskStatus *TaskStatus, err error) {
+	taskStatus = &TaskStatus{}
+
+	taskstatus_str, err := os.ReadFile(filepath.Join(campignsPath, campaignId))
+	if err != nil {
+		utils.RemoveCampaignId(campignsPath, campaignId)
+		return nil, errors.Wrap(err, "RemovesTaskStatusFile error1")
+	}
+
+	err = json.Unmarshal(taskstatus_str, &taskStatus)
+	if err != nil {
+		utils.RemoveCampaignId(campignsPath, campaignId)
+		return nil, errors.Wrap(err, "RemovesTaskStatusFile error2")
+	}
+
+	return taskStatus, nil
+}
+
+func RemovesTaskStatusFile(campignsPath string, campaignId string) (err error) {
+	err = os.Remove(filepath.Join(campignsPath, campaignId))
+	if err != nil {
+		err = errors.Wrap(err, "RemovesTaskStatusFile error")
+		return
+	}
+
+	return nil
+}
+
+func StoreTaskStatusFile(campignsPath string, taskStatus *TaskStatus) (err error) {
+	taskStatus_s, err := json.Marshal(*taskStatus)
+	if err != nil {
+		err = errors.Wrap(err, "StoreTaskStatusFile error1")
+		return
+	}
+
+	f, err := os.OpenFile(filepath.Join(campignsPath, taskStatus.CampaignId), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0666)
+	if err != nil {
+		err = errors.Wrap(err, "StoreTaskStatusFile error2")
+		return
+	}
+	defer f.Close()
+
+	_, err = f.Write(taskStatus_s)
+	if err != nil {
+		err = errors.Wrap(err, "StoreTaskStatusFile error3")
+		return
+	}
+
+	return nil
 }
