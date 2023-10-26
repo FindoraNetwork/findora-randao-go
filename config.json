@@ -2,10 +2,10 @@
     "chain": {
         "name": "gsc",
         "chain_id": "1204",
-        "endpoint": "https://gsc-mainnet.prod.findora.org:8545",
-        "ws_endpoint": "https://gsc-mainnet.prod.findora.org:8545",
-        "participant": "8ea5974517769211efd4af5814ea1600ba888b7786f7df5e26dc3d6bab6822bc",
-        "campaigner": "8ea5974517769211efd4af5814ea1600ba888b7786f7df5e26dc3d6bab6822bc",
+        "endpoint": "http://gsc-mainnet-us-west-2-full-001-open.prod.findora.org:8545",
+        "event_endpoint": "http://gsc-mainnet-us-west-2-full-001-open.prod.findora.org:8545",
+        "participant": "b501fc5879f214ee8be2832e43955ac0f19e20d1f7e33436d6746ac889dc043d",
+        "campaigner": "b501fc5879f214ee8be2832e43955ac0f19e20d1f7e33436d6746ac889dc043d",
         "randao": "0xfB45f8B9705FFA9d05D42b72E73afE7E2ceEa860",
         "opts": {
             "gas_limit": "1000000",

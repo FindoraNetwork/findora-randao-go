@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -125,20 +126,17 @@ func (t *WorkTask) Step2() (err error) {
 
 	var balkline = bnum.Uint64() - uint64(commit_balkline)
 	var deadline = bnum.Uint64() - uint64(commit_deadline)
-	currBnum, err := t.cli.BlockNumber(context.Background())
+
+	currBnum, err := utils.WaitBlocks(t.cli, balkline)
 	if err != nil {
-		err = errors.Wrap(err, "BlockNumber error!!!")
+		err = errors.Wrap(err, "WaitBlocks error!!!")
 		return
 	}
 	if currBnum > deadline {
 		err = errors.New("Too late to commit to campaign!!!")
 		return
 	}
-	err = utils.WaitBlocks(t.cli, balkline)
-	if err != nil {
-		err = errors.Wrap(err, "WaitBlocks error!!!")
-		return
-	}
+
 	txOpts, err := bind.NewKeyedTransactorWithChainID(t.key, t.chainID)
 	if err != nil {
 		err = errors.Wrap(err, "bind.NewKeyedTransactorWithChainID error!!!")
@@ -237,16 +235,15 @@ func (t *WorkTask) Step3() (err error) {
 	var commit_deadline = t.taskStatus.CampaignInfo.CommitDeadline
 	var deadline = bnum.Uint64() - uint64(commit_deadline)
 
-	currBnum, err := t.cli.BlockNumber(context.Background())
+	currBnum, err := utils.WaitBlocks(t.cli, deadline+1)
 	if err != nil {
-		err = errors.Wrap(err, "BlockNumber error!!!")
+		err = errors.Wrap(err, "WaitBlocks error!!!")
 		return
 	}
-	if currBnum > bnum.Uint64() {
+	if currBnum >= bnum.Uint64() {
 		err = errors.New("Too late to reveal to campaign!!!")
 		return
 	}
-	utils.WaitBlocks(t.cli, deadline)
 
 	var txHash = t.taskStatus.TxHash
 	tx, _, err := t.cli.TransactionByHash(context.Background(), common.HexToHash(txHash))
@@ -354,7 +351,11 @@ func (t *WorkTask) Step4() (err error) {
 		return
 	}
 
-	utils.WaitBlocks(t.cli, bnum.Uint64())
+	_, err = utils.WaitBlocks(t.cli, bnum.Uint64())
+	if err != nil {
+		err = errors.Wrap(err, "WaitBlocks error!!!")
+		return
+	}
 
 	var txHash = t.taskStatus.TxHash
 	tx, _, err := t.cli.TransactionByHash(context.Background(), common.HexToHash(txHash))
@@ -614,40 +615,83 @@ var (
 	CampignIdsLock      sync.Mutex
 )
 
-func CampaignIdsUpdateFromChain(randao1 *randao.Randao) {
-	logCampaignAdded := make(chan *randao.RandaoLogCampaignAdded, model.Conf.Chain.Opts.MaxCampaigns*20)
+var subscribedBlock uint64 = 0
 
-	sub, err := randao1.WatchLogCampaignAdded(&bind.WatchOpts{}, logCampaignAdded, nil, nil, nil)
-	if err != nil {
-		panic(fmt.Sprintf("WatchLogCampaignAdded watch create failed: %s\n", err.Error()))
-	}
-
+func CampaignIdsUpdateFromChain(evRandao *randao.Randao, cli *ethclient.Client) {
 	for {
-		select {
-		case err := <-sub.Err():
-			panic(fmt.Sprintf("WatchLogCampaignAdded subscribe error: %s\n", err.Error()))
-		case evt := <-logCampaignAdded:
-			{
-				fmt.Printf("event logCampaignAdded: %s\n", evt.CampaignID.String())
-				var is_exist = func(s []string, x string) bool {
-					for _, v := range s {
-						if strings.Compare(v, x) == 0 {
-							return true
-						}
-					}
-					return false
-				}
-
-				CampignIdsLock.Lock()
-				var campaignID = evt.CampaignID.String()
-				if !is_exist(CampignIdsFromFile, campaignID) && !is_exist(CampignIdsFromChain, campaignID) {
-					CampignIdsFromChain = append(CampignIdsFromChain, campaignID)
-					fmt.Println("campaignID insert CampignIdsFromChain: ", campaignID)
-				} else {
-					fmt.Println("campaignID exist in CampignIdsFromFile or CampignIdsFromChain:", campaignID)
-				}
-				CampignIdsLock.Unlock()
-			}
+		curr_block_num, err := cli.BlockNumber(context.Background())
+		if err != nil {
+			panic(errors.Wrap(err, "cli.BlockNumber error"))
 		}
+
+		if curr_block_num <= subscribedBlock {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+		subscribedBlock = curr_block_num
+
+		iter, err := evRandao.FilterLogCampaignAdded(
+			&bind.FilterOpts{Start: subscribedBlock},
+			nil, nil, nil)
+		if err != nil {
+			panic(fmt.Sprintf("FilterLogCampaignAdded watch create failed: %s\n", err.Error()))
+		}
+
+		for iter.Next() {
+			if err = iter.Error(); err != nil {
+				fmt.Println("LogCampaignAdded iterator error: ", err)
+				break
+			}
+			evt := iter.Event
+			fmt.Println("LogCampaignAdded event: ", evt)
+
+			var is_exist = func(s []string, x string) bool {
+				for _, v := range s {
+					if strings.Compare(v, x) == 0 {
+						return true
+					}
+				}
+				return false
+			}
+
+			CampignIdsLock.Lock()
+			var campaignID = evt.CampaignID.String()
+			if !is_exist(CampignIdsFromFile, campaignID) && !is_exist(CampignIdsFromChain, campaignID) {
+				CampignIdsFromChain = append(CampignIdsFromChain, campaignID)
+				fmt.Println("campaignID insert CampignIdsFromChain: ", campaignID)
+			} else {
+				fmt.Println("campaignID exist in CampignIdsFromFile or CampignIdsFromChain:", campaignID)
+			}
+			CampignIdsLock.Unlock()
+		}
+		iter.Close()
 	}
+	// for {
+	// 	select {
+	// 	case err := <-sub.Err():
+	// 		panic(fmt.Sprintf("WatchLogCampaignAdded subscribe error: %s\n", err.Error()))
+	// 	case evt := <-logCampaignAdded:
+	// 		{
+	// 			fmt.Printf("event logCampaignAdded: %s\n", evt.CampaignID.String())
+	// 			var is_exist = func(s []string, x string) bool {
+	// 				for _, v := range s {
+	// 					if strings.Compare(v, x) == 0 {
+	// 						return true
+	// 					}
+	// 				}
+	// 				return false
+	// 			}
+
+	// 			CampignIdsLock.Lock()
+	// 			var campaignID = evt.CampaignID.String()
+	// 			if !is_exist(CampignIdsFromFile, campaignID) && !is_exist(CampignIdsFromChain, campaignID) {
+	// 				CampignIdsFromChain = append(CampignIdsFromChain, campaignID)
+	// 				fmt.Println("campaignID insert CampignIdsFromChain: ", campaignID)
+	// 			} else {
+	// 				fmt.Println("campaignID exist in CampignIdsFromFile or CampignIdsFromChain:", campaignID)
+	// 			}
+	// 			CampignIdsLock.Unlock()
+	// 		}
+	// 	}
+	// }
 }

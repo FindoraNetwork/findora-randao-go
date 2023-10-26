@@ -7,13 +7,18 @@ import (
 	model "findora/randao/model"
 	utils "findora/randao/utils"
 	"fmt"
+	// "log"
 	"math/big"
 	"os"
+	// "strings"
 
+	// "github.com/ethereum/go-ethereum"
+	// "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	// "github.com/pkg/errors"
 )
 
 func main() {
@@ -87,7 +92,7 @@ func main() {
 	// 	panic(fmt.Sprintf("cli.SuggestGasPrice error: %s\n", err.Error()))
 	// }
 	// gasPrice = gasPrice.Mul(gasPrice, big.NewInt(3))
-	// gasLimit = gasLimit * 3
+	// gasLimit = gasLimit * 100
 
 	// fmt.Println("Estimate GasLimit Gas:", gasLimit)
 	// fmt.Println("Estimate GasPrice Gas:", gasPrice)

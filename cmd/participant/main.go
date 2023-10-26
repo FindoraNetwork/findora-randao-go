@@ -63,11 +63,11 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("NewRandao error: %s\n", err.Error()))
 	}
-	cl2, err := ethclient.Dial(model.Conf.Chain.WSEndpoint)
+	evCli, err := ethclient.Dial(model.Conf.Chain.EvEndpoint)
 	if err != nil {
 		panic(fmt.Sprintf("ethclient.Dial error: %s\n", err.Error()))
 	}
-	randao2, err := randao.NewRandao(common.HexToAddress(model.Conf.Chain.Randao), cl2)
+	evRandao, err := randao.NewRandao(common.HexToAddress(model.Conf.Chain.Randao), evCli)
 	if err != nil {
 		panic(fmt.Sprintf("NewRandao error: %s\n", err.Error()))
 	}
@@ -86,7 +86,7 @@ func main() {
 	}
 	utils.PrintCampaignIds2(CampignIdsFromFile)
 
-	go CampaignIdsUpdateFromChain(randao2)
+	go CampaignIdsUpdateFromChain(evRandao, cli)
 
 	var maxTaskCnt = model.Conf.Chain.Opts.MaxCampaigns
 	var currTaskCnt uint64 = 0

@@ -14,19 +14,22 @@ import (
 	"github.com/pkg/errors"
 )
 
-func WaitBlocks(cli *ethclient.Client, bnum uint64) error {
-	for {
-		curr_block_num, err := cli.BlockNumber(context.Background())
+func WaitBlocks(cli *ethclient.Client, destBnum uint64) (currBnum uint64, err error) {
+	currBnum, err = cli.BlockNumber(context.Background())
+	if err != nil {
+		err = errors.Wrap(err, "cli.BlockNumber error:")
+		return
+	}
+	for currBnum < destBnum {
+		currBnum, err = cli.BlockNumber(context.Background())
 		if err != nil {
-			return errors.Wrap(err, "cli.BlockNumber error:")
+			err = errors.Wrap(err, "cli.BlockNumber error:")
+			return
 		}
-		if curr_block_num >= bnum {
-			break
-		}
-		// fmt.Println("curr block num: ", curr_block_num)
+		// fmt.Println("curr block num: ", currBnum)
 		time.Sleep(500 * time.Millisecond)
 	}
-	return nil
+	return currBnum, nil
 }
 
 func StoreCampaignId(campaign_ids_path string, campaign_id string) (err error) {

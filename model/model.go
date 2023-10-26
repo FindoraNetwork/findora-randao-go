@@ -9,7 +9,7 @@ type Config struct {
 		Name        string `json:"name"`
 		ChainId     string `json:"chain_id"`
 		Endpoint    string `json:"endpoint"`
-		WSEndpoint  string `json:"ws_endpoint"`
+		EvEndpoint  string `json:"event_endpoint"`
 		Participant string `json:"participant"`
 		Campaigner  string `json:"campaigner"`
 		Randao      string `json:"randao"`

@@ -1,4 +1,9 @@
-abi
-bin/
-contract/randao.go
 .vscode/
+abi/IRandao.abi
+abi/IRandao.bin
+bin/campaign
+bin/participant
+contract/randao.go
+campaigns
+campaigns*
+config*.json
