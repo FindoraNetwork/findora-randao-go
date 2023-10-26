@@ -9,6 +9,7 @@ type Config struct {
 		Name        string `json:"name"`
 		ChainId     string `json:"chain_id"`
 		Endpoint    string `json:"endpoint"`
+		WSEndpoint  string `json:"ws_endpoint"`
 		Participant string `json:"participant"`
 		Campaigner  string `json:"campaigner"`
 		Randao      string `json:"randao"`
@@ -59,3 +60,5 @@ func CampaignInfoDeConvert(src *CampaignInfo) (dest *randao.IRandaoCampaignInfo)
 
 	return
 }
+
+var Conf Config

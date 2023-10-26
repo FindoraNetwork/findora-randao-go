@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -74,7 +75,7 @@ func (t *WorkTask) Step1() (err error) {
 		err = errors.Wrap(err, "ShaCommit error!")
 		return
 	}
-	fmt.Println("ShaCommit success, campaignId:", t.taskStatus.CampaignId, "s:", _s.String(), "hs:", _hs)
+	fmt.Println("ShaCommit success, campaignId:", t.taskStatus.CampaignId, ", s:", _s.String(), ", hs:", _hs)
 
 	t.taskStatus.Step = 1
 	t.taskStatus.S = _s.String()
@@ -145,7 +146,40 @@ func (t *WorkTask) Step2() (err error) {
 	}
 
 	txLock.Lock()
-	defer txLock.Unlock()
+	fmt.Println("Step2 lock campaignId:", campaignId)
+	defer func() {
+		txLock.Unlock()
+		fmt.Println("Step2 unlock campaignId:", campaignId)
+	}()
+
+	// randaoAbi, err := abi.JSON(strings.NewReader(contract.RandaoABI))
+	// if err != nil {
+	// 	err = errors.Wrap(err, "abi.JSON error")
+	// 	return
+	// }
+	// data, err := randaoAbi.Pack("commit", campaignId, _hs)
+	// if err != nil {
+	// 	err = errors.Wrap(err, "randaoAbi.Pack error")
+	// 	return
+	// }
+	// to := common.HexToAddress(model.Conf.Chain.Randao)
+	// estimateGasCall := ethereum.CallMsg{
+	// 	To:    &to,
+	// 	Data:  data,
+	// 	Value: deposit,
+	// }
+	// gasLimit, err := t.cli.EstimateGas(context.Background(), estimateGasCall)
+	// if err != nil {
+	// 	err = errors.Wrap(err, "EstimateGas error")
+	// 	return
+	// }
+	// gasPrice, err := t.cli.SuggestGasPrice(context.Background())
+	// if err != nil {
+	// 	err = errors.Wrap(err, "cli.SuggestGasPrice error")
+	// 	return
+	// }
+	// gasPrice = gasPrice.Mul(gasPrice, big.NewInt(10))
+	// gasLimit = gasLimit * 100
 
 	var pendingNonce uint64
 	pendingNonce, err = t.cli.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(t.key.PublicKey))
@@ -153,15 +187,12 @@ func (t *WorkTask) Step2() (err error) {
 		err = errors.Wrap(err, "PendingNonceAt error!!!")
 		return
 	}
+	// txOpts.GasPrice = gasPrice
+	// txOpts.GasLimit = gasLimit
 	txOpts.Nonce = big.NewInt(0).SetUint64(pendingNonce)
-	// gasPrice, err := t.cli.SuggestGasPrice(context.Background())
-	// if err != nil {
-	// 	ret.err = errors.Wrap(err, "SuggestGasPrice error!!!")
-	// 	res <- ret
-	// 	return
-	// }
-	// txOpts.GasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
 	txOpts.Value = deposit
+
+	fmt.Println("Step2 campaignId:", campaignId, "pendingNonce:", pendingNonce)
 	tx, err := t.randao1.Commit(txOpts, campaignId, _hs)
 	if err != nil {
 		err = errors.Wrap(err, "Commit error!!!")
@@ -185,7 +216,7 @@ func (t *WorkTask) Step2() (err error) {
 
 func (t *WorkTask) Step3() (err error) {
 	// step 3
-	campainId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
+	campaignId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
 	if !isValid {
 		err = errors.New("campainId format is error!")
 		return
@@ -242,7 +273,41 @@ func (t *WorkTask) Step3() (err error) {
 	}
 
 	txLock.Lock()
-	defer txLock.Unlock()
+	fmt.Println("Step3 lock campaignId:", campaignId)
+	defer func() {
+		txLock.Unlock()
+		fmt.Println("Step3 unlock campaignId:", campaignId)
+	}()
+
+	// randaoAbi, err := abi.JSON(strings.NewReader(contract.RandaoABI))
+	// if err != nil {
+	// 	err = errors.Wrap(err, "abi.JSON error")
+	// 	return
+	// }
+	// fmt.Println("reveal", campaignId, _s)
+
+	// data, err := randaoAbi.Pack("reveal", campaignId, _s)
+	// if err != nil {
+	// 	err = errors.Wrap(err, "randaoAbi.Pack error")
+	// 	return
+	// }
+	// to := common.HexToAddress(model.Conf.Chain.Randao)
+	// estimateGasCall := ethereum.CallMsg{
+	// 	To:   &to,
+	// 	Data: data,
+	// }
+	// gasLimit, err := t.cli.EstimateGas(context.Background(), estimateGasCall)
+	// if err != nil {
+	// 	err = errors.Wrap(err, "EstimateGas error")
+	// 	return
+	// }
+	// gasPrice, err := t.cli.SuggestGasPrice(context.Background())
+	// if err != nil {
+	// 	err = errors.Wrap(err, "cli.SuggestGasPrice error")
+	// 	return
+	// }
+	// gasPrice = gasPrice.Mul(gasPrice, big.NewInt(3))
+	// gasLimit = gasLimit * 5
 
 	var pendingNonce uint64
 	pendingNonce, err = t.cli.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(t.key.PublicKey))
@@ -250,15 +315,12 @@ func (t *WorkTask) Step3() (err error) {
 		err = errors.Wrap(err, "PendingNonceAt error!!!")
 		return
 	}
+	// txOpts.GasPrice = gasPrice
+	// txOpts.GasLimit = gasLimit
 	txOpts.Nonce = big.NewInt(0).SetUint64(pendingNonce)
-	// gasPrice, err = t.cli.SuggestGasPrice(context.Background())
-	// if err != nil {
-	// 	ret.err = errors.Wrap(err, "SuggestGasPrice error!!!")
-	// 	res <- ret
-	// 	return
-	// }
-	// txOpts.GasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
-	tx, err = t.randao1.Reveal(txOpts, campainId, _s)
+
+	fmt.Println("Step3 campaignId:", campaignId, "pendingNonce:", pendingNonce)
+	tx, err = t.randao1.Reveal(txOpts, campaignId, _s)
 	if err != nil {
 		err = errors.Wrap(err, "Reveal error!!!")
 		return
@@ -280,7 +342,7 @@ func (t *WorkTask) Step3() (err error) {
 }
 
 func (t *WorkTask) Step4() (err error) {
-	campainId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
+	campaignId, isValid := big.NewInt(0).SetString(t.taskStatus.CampaignId, 10)
 	if !isValid {
 		err = errors.New("campainId format is error!")
 		return
@@ -319,15 +381,50 @@ func (t *WorkTask) Step4() (err error) {
 	}
 
 	txLock.Lock()
+	fmt.Println("Step4 lock campaignId:", campaignId)
+
+	// randaoAbi, err := abi.JSON(strings.NewReader(contract.RandaoABI))
+	// if err != nil {
+	// 	err = errors.Wrap(err, "abi.JSON error")
+	// 	return
+	// }
+	// data, err := randaoAbi.Pack("getMyBounty", campaignId)
+	// if err != nil {
+	// 	err = errors.Wrap(err, "randaoAbi.Pack error")
+	// 	return
+	// }
+	// to := common.HexToAddress(model.Conf.Chain.Randao)
+	// estimateGasCall := ethereum.CallMsg{
+	// 	To:   &to,
+	// 	Data: data,
+	// }
+	// gasLimit, err := t.cli.EstimateGas(context.Background(), estimateGasCall)
+	// if err != nil {
+	// 	err = errors.Wrap(err, "EstimateGas error")
+	// 	return
+	// }
+	// gasPrice, err := t.cli.SuggestGasPrice(context.Background())
+	// if err != nil {
+	// 	err = errors.Wrap(err, "cli.SuggestGasPrice error")
+	// 	return
+	// }
+	// gasPrice = gasPrice.Mul(gasPrice, big.NewInt(3))
+	// gasLimit = gasLimit * 5
 
 	var pendingNonce uint64
 	pendingNonce, err = t.cli.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(t.key.PublicKey))
 	if err != nil {
-		err = errors.Wrap(err, "PendingNonceAt error!!!")
 		txLock.Unlock()
+		fmt.Println("Step4 unlock campaignId:", campaignId)
+
+		err = errors.Wrap(err, "PendingNonceAt error!!!")
 		return
 	}
+	// txOpts.GasPrice = gasPrice
+	// txOpts.GasLimit = gasLimit
 	txOpts.Nonce = big.NewInt(0).SetUint64(pendingNonce)
+
+	fmt.Println("Step4 campaignId:", campaignId, "pendingNonce:", pendingNonce)
 	// gasPrice, err = t.cli.SuggestGasPrice(context.Background())
 	// if err != nil {
 	// 	ret.err = errors.Wrap(err, "SuggestGasPrice error!!!")
@@ -335,13 +432,16 @@ func (t *WorkTask) Step4() (err error) {
 	// 	return
 	// }
 	// txOpts.GasPrice = gasPrice
-	tx, err = t.randao1.GetMyBounty(txOpts, campainId)
+	tx, err = t.randao1.GetMyBounty(txOpts, campaignId)
 	if err != nil {
 		err = errors.Wrap(err, "GetMyBounty error!!!")
+		fmt.Println("Step4 unlock campaignId:", campaignId)
+
 		txLock.Unlock()
 		return
 	}
 	txLock.Unlock()
+	fmt.Println("Step4 unlock campaignId:", campaignId)
 
 	txHash = tx.Hash().Hex()
 	fmt.Println("GetMyBounty join success, campaignId:", t.taskStatus.CampaignId, "tx hash:", txHash)
@@ -435,6 +535,7 @@ func genRandomU256() (random *big.Int, err error) {
 		}
 		if n < 8 {
 			err = errors.New(fmt.Sprintf("rand number error: %d", n))
+			return
 		}
 		num = uint64(binary.LittleEndian.Uint64(buf[:]))
 		m[num] = struct{}{}
@@ -508,23 +609,45 @@ func StoreTaskStatusFile(campignsPath string, taskStatus *TaskStatus) (err error
 }
 
 var (
-	CampignIdsFromChain     map[uint64]struct{}
-	CampignIdsFromChainLock sync.Mutex
+	CampignIdsFromChain []string
+	CampignIdsFromFile  []string
+	CampignIdsLock      sync.Mutex
 )
 
 func CampaignIdsUpdateFromChain(randao1 *randao.Randao) {
-	logCampaignAdded := make(chan *randao.RandaoLogCampaignAdded)
+	logCampaignAdded := make(chan *randao.RandaoLogCampaignAdded, model.Conf.Chain.Opts.MaxCampaigns*20)
+
 	sub, err := randao1.WatchLogCampaignAdded(&bind.WatchOpts{}, logCampaignAdded, nil, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("WatchLogCampaignAdded watch create failed: %s", err.Error()))
+		panic(fmt.Sprintf("WatchLogCampaignAdded watch create failed: %s\n", err.Error()))
 	}
 
 	for {
 		select {
 		case err := <-sub.Err():
-			panic(fmt.Sprintf("WatchLogCampaignAdded subscribe error: %s", err.Error()))
+			panic(fmt.Sprintf("WatchLogCampaignAdded subscribe error: %s\n", err.Error()))
 		case evt := <-logCampaignAdded:
-			fmt.Println("event logCampaignAdded: %s\n", evt.CampaignID.String())
+			{
+				fmt.Printf("event logCampaignAdded: %s\n", evt.CampaignID.String())
+				var is_exist = func(s []string, x string) bool {
+					for _, v := range s {
+						if strings.Compare(v, x) == 0 {
+							return true
+						}
+					}
+					return false
+				}
+
+				CampignIdsLock.Lock()
+				var campaignID = evt.CampaignID.String()
+				if !is_exist(CampignIdsFromFile, campaignID) && !is_exist(CampignIdsFromChain, campaignID) {
+					CampignIdsFromChain = append(CampignIdsFromChain, campaignID)
+					fmt.Println("campaignID insert CampignIdsFromChain: ", campaignID)
+				} else {
+					fmt.Println("campaignID exist in CampignIdsFromFile or CampignIdsFromChain:", campaignID)
+				}
+				CampignIdsLock.Unlock()
+			}
 		}
 	}
 }

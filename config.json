@@ -1,8 +1,9 @@
 {
     "chain": {
-        "name": "local",
-        "chain_id": "2152",
-        "endpoint": "http://127.0.0.1:8545",
+        "name": "gsc",
+        "chain_id": "1204",
+        "endpoint": "https://gsc-mainnet.prod.findora.org:8545",
+        "ws_endpoint": "https://gsc-mainnet.prod.findora.org:8545",
         "participant": "8ea5974517769211efd4af5814ea1600ba888b7786f7df5e26dc3d6bab6822bc",
         "campaigner": "8ea5974517769211efd4af5814ea1600ba888b7786f7df5e26dc3d6bab6822bc",
         "randao": "0xfB45f8B9705FFA9d05D42b72E73afE7E2ceEa860",
